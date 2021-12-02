@@ -85,6 +85,8 @@ def train(args, model, device, train_loader, optimizer, epoch, criterion, train_
         # measure accuracy and record loss
         losses.update(loss.item(), data.size(0))
 
+        # print(f"output.data.shape: {output.data.shape}, target.shape: {target.shape}")
+
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
         top1.update(prec1.item(), data.size(0))
         top5.update(prec5.item(), data.size(0))
@@ -275,6 +277,9 @@ def main():
     parser.add_argument('--mgpu', default=False,  type=str2bool, nargs='?',
                         help='use data paralization via multiple GPUs')
 
+    parser.add_argument('--gpu', default=0,  type=int,
+                        help='')
+
     parser.add_argument('--dataset', default="MNIST", type=str,
                         help='dataset for experiment, choice: MNIST, CIFAR10', choices= ["MNIST", "CIFAR10", "Imagenet"])
 
@@ -381,7 +386,7 @@ def main():
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                 world_size=args.world_size, rank=0)
 
-    device = torch.device("cuda" if use_cuda else "cpu")
+    device = torch.device("cuda:{}".format(args.gpu) if use_cuda else "cpu")
 
     if args.model == "lenet3":
         model = LeNet(dataset=args.dataset)
@@ -436,14 +441,14 @@ def main():
     if args.dataset == "MNIST":
         kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
         train_loader = torch.utils.data.DataLoader(
-            datasets.MNIST('../data', train=True, download=True,
+            datasets.MNIST(args.data, train=True, download=True,
                            transform=transforms.Compose([
                                transforms.ToTensor(),
                                transforms.Normalize((0.1307,), (0.3081,))
                            ])),
             batch_size=args.batch_size, shuffle=True, **kwargs)
         test_loader = torch.utils.data.DataLoader(
-            datasets.MNIST('../data', train=False, transform=transforms.Compose([
+            datasets.MNIST(args.data, train=False, transform=transforms.Compose([
                                transforms.ToTensor(),
                                transforms.Normalize((0.1307,), (0.3081,))
                            ])),
@@ -474,12 +479,12 @@ def main():
 
         kwargs = {'num_workers': 8, 'pin_memory': True}
         train_loader = torch.utils.data.DataLoader(
-            datasets.CIFAR10('../data', train=True, download=True,
+            datasets.CIFAR10(args.data, train=True, download=True,
                              transform=transform_train),
             batch_size=args.batch_size, shuffle=True, drop_last=True, **kwargs)
 
         test_loader = torch.utils.data.DataLoader(
-            datasets.CIFAR10('../data', train=False, transform=transform_test),
+            datasets.CIFAR10(args.data, train=False, transform=transform_test),
             batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
     elif args.dataset == "Imagenet":
